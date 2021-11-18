@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset=”UTF-8”>
+  <link rel=”stylesheet” href=”https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css”>
+  <script src=”https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js”></script>
+  <script src=”https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js”></script>
+  <script src=”https://ajax.googleapis.com/ajax/libs/jqueryui/1/i18n/jquery.ui.datepicker-ja.min.js”></script>
+
+   <script>
+      $(‘#datepicker’).datepicker();
+   </script>
+  
+    <base target=”_top”>
+    　<?!= HtmlService.createHtmlOutputFromFile(‘css’).getContent(); ?>
+  </head>
+  <body onload=”onLoadBody();”>
+    <h1>長岡造形大学　施設予約</h1>
+　　<?
+   var myName = getmyName();
+   output.append(‘<a>あなたが「‘ + myName + ‘」ではない場合はGoogleにログインし直してください。</a>’);
+ 　?>
+   <p>このサイトはGoogle Chrome推奨です。</p>
+    <form name=”facilities” method=”post”  accept-charset=”utf-8” action=”https://scriptへのパス/exec”>
+    
+    <input type=”hidden” name=”userid” value=”<?var myName = getmyName();output.append(myName);?>”>
+   <hr>
+    <div>
+    <label>名前:</label>
+      <input name=”username” placeholder=”名前を入力してください”>
+      <hr>
+   <label>予約施設:</label>
+   <select name = “shisetu”>
+　　</select>
+   </div>
+ <hr>
+  <!--日付-->
+  <label>日付:</label>
+   <script>
+  $(function() {
+    $.datepicker.setDefaults($.datepicker.regional[“ja”]);
+    $(“#input1”).datepicker();
+  });
+</script>
+<input type=”text” id=”input1” name=”date”>
+ 
+
+
+
+ <hr>
+  <label>予約時限:</label>  
+  <select name=”time” placeholder=”予約する時限(1~5）を選んでください”>
+     <option value=”1”>1時限(9:00~10:30)</option>
+     <option value=”2”>2時限(10:40~12:10)</option>
+     <option value=”3”>3時限(13:00~14:30)</option>
+     <option value=”4”>4時限(14:40~16:10)</option>
+     <option value=”5”>5時限(16:20~17:50)</option>
+   </select>
+ <hr>
+    <hr>
+    <input type=”submit” value=”予約実行”  class=”button”>
+    <hr>
+  </form>
+
+<!--  予約履歴を表示する　-->
+<div id=”reservation”>
+<h2>あなたの予約履歴</h2>
+  <table>
+      <?
+       var myName = getmyName();//自分のアカウント名を取得
+        // スプレッドシートからデータを取得
+        var data = getData();
+        // テーブルの見出し作成
+        output.append(‘<tr>’);
+        output.append(‘<th>施設名</th>’);
+        output.append(‘<th>日付</th>’);
+        output.append(‘<th>時限</th>’);
+        output.append(‘<th>予約状況</th>’);
+        output.append(‘</tr>’);
+        
+        // テーブルを作成
+        for(var i=data.length-1;i>0;i--){
+          if (data[i][7].trim()  == myName.trim()){
+          　　if ( data[i][6] != “”){//日付が空欄の時の対策
+          　　var dayFormat = Utilities.formatDate( data[i][6], ‘Asia/Tokyo’, ‘yyyy/M/d’);
+            } 
+             output.append(‘<tr>’);
+             output.append(‘<td>’ + data[i][3] + ‘</td>’);
+             output.append(‘<td>’ + dayFormat + ‘</td>’);
+             output.append(‘<td align=”center”>’ + data[i][4] + ‘</td>’);
+             if (data[i][8] == “OK”){
+                output.append(‘<td align=”center”>予約済み</td>’);
+             } else {
+                output.append(‘<td align=”center”>不可</td>’);
+             }
+             output.append(‘</tr>’);
+          }
+        }
+      ?>
+   </table>
+   </div>
+  </body>
+ 
+  <script>
+      //ページ読み込み後に実行される関数。機材リストを読みこむ。読み込み完了したらprepareMenuを呼び出す
+      function onLoadBody(){
+         console.log(“onLoadBody”);
+         appList = google.script.run.withSuccessHandler(prepareMenu).getFacilitiesList();//読み込みが完了したらprepareMenuを実行
+      }
+      //getApparatusListが完了したら呼び出される関数
+      function prepareMenu(appList){
+         var select = document.forms.facilities.shisetu;
+         
+         //0は表のヘッダーなので読み飛ばして　機材リストを配列に入れる
+         for(var i=1;i<appList.length ;i++){
+           select.options[i-1] = new Option(appList[i][0]);
+         }
+      }
+  </script>
+</html>

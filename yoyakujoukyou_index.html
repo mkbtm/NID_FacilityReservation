@@ -1,0 +1,310 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset=”UTF-8”>
+    <title>施設予約一覧</title>
+    <base target=”_top”>
+    　<?!= HtmlService.createHtmlOutputFromFile(‘css’).getContent(); ?>
+  </head>
+  <body onload=”pageInitialize();”>
+    <h1>長岡造形大学　施設ごとの予約表示</h1>
+    <p>このサイトはGoogle Chromeで開いてください。</p>
+  <form name=”nid” method=”post”  accept-charset=”utf-8” onchange=”changePopUPmenu();”>
+
+   <label>予約施設:</label>
+   <select name = “shisetu” id=”shisetu”>
+　　</select>
+    
+    <input id=”IDyear” type=”hidden” name=”year” size=”10”>
+    <input id=”IDmonth” type=”hidden” name=”month” size=”10”>
+  </form>
+  
+<button onclick=”prevMonth()”>前の月へ</button>
+<button onclick=”nextMonth()”>次の月へ</button>
+
+
+<div id = “currentYear”><?=myYear?></div>
+<div id = “currentMonth”><?=myMonth?></div>
+<!--<div id = “debug”></div>-->
+<div id = “msg”><?=msg?></div>
+<div id = “eventsMSG”></div>
+
+<div id = “myCalendarID”></div>
+</body>
+
+<script>
+
+   var calenderEvents;
+
+
+ //getApparatusListが完了したら呼び出される関数
+    function prepareMenu(appList){
+       var select = document.forms.nid.shisetu;
+         
+       //0は表のヘッダーなので読み飛ばして　機材リストを配列に入れる
+       for(var i=1;i<appList.length ;i++){
+         select.options[i-1] = new Option(appList[i][0]);
+         select.options[i-1].value = appList[i][0];
+       }
+       
+       //施設のポップアップメニューを取得してから　ページの初期化作業を行う。
+        var year = document.getElementById(‘currentYear’).innerHTML;
+              
+  　   if(year == “year”){         var today = new Date();
+         var m = today.getMonth()+1;
+         var y = today.getFullYear();
+   
+         var nidForm = document.forms.nid;
+         nidForm.elements.month.value = m;
+         nidForm.elements.year.value = y;
+       
+         document.getElementById(‘currentYear’).innerHTML = y;
+         document.getElementById(‘currentMonth’).innerHTML = m;
+      }
+      calenderEvents = google.script.run.withSuccessHandler(drawCalendar).getCalendarEvents(y,m,””);
+    }
+      
+      
+   //ページを開いたときに現在の日付をフォームに入れる
+   //現在の日付が空の時には今日の日付、空ではない時には検索から帰ってきた値を使う
+   function pageInitialize(){
+      //施設一覧名をスプレッドシートから入手
+      appList = google.script.run.withSuccessHandler(prepareMenu).getFacilitiesList();//読み込みが完了したらprepareMenuを実行
+      
+　　  
+   }
+   
+
+   //次の月へ
+   function nextMonth() {
+     console.log(“====== do fucnction nextMonth”);
+     var nidForm = document.forms.nid;
+     var mString = nidForm.elements.month.value;
+     var yString = nidForm.elements.year.value;
+     var m = Number(mString);
+     m++;
+     var aDay = new Date(yString,m-1,1);
+     
+     var year = aDay.getFullYear();
+     var month = aDay.getMonth();
+      nidForm.elements.month.value = month+1;
+      nidForm.elements.year.value = year;
+      
+      var netxtMonth = month + 1;
+      document.getElementById(‘currentYear’).innerHTML = year;
+      document.getElementById(‘currentMonth’).innerHTML = netxtMonth;
+      console.log(“year=” + year + “ moth+1=” +netxtMonth);
+      calenderEvents = google.script.run.withSuccessHandler(drawCalendar).getCalendarEvents(year,netxtMonth,””);
+   }
+
+　　//前の月へ
+   function prevMonth() {
+     console.log(“====== do fucnction nextMonth”);
+     var nidForm = document.forms.nid;
+     var mString = nidForm.elements.month.value;
+     var yString = nidForm.elements.year.value;
+     var m = Number(mString);
+     m--;
+     var aDay = new Date(yString,m-1,1);
+     
+     var year = aDay.getFullYear();
+     var month = aDay.getMonth();
+      nidForm.elements.month.value = month+1;
+      nidForm.elements.year.value = year;
+      
+      document.getElementById(‘currentYear’).innerHTML = year;
+      document.getElementById(‘currentMonth’).innerHTML = month+1;
+      
+      calenderEvents = google.script.run.withSuccessHandler(drawCalendar).getCalendarEvents(year,month+1,””);
+   }
+   
+   
+   //施設の名前を選択した時
+   function changePopUPmenu(){
+     var nidForm = document.forms.nid;
+     var mString = nidForm.elements.month.value;
+     var yString = nidForm.elements.year.value;
+     var m = Number(mString);
+
+     var aDay = new Date(yString,m-1,1);
+     
+     var year = aDay.getFullYear();
+     var month = aDay.getMonth();
+      nidForm.elements.month.value = month+1;
+      nidForm.elements.year.value = year;
+      
+      document.getElementById(‘currentYear’).innerHTML = year;
+      document.getElementById(‘currentMonth’).innerHTML = month+1;
+      
+      calenderEvents = google.script.run.withSuccessHandler(drawCalendar).getCalendarEvents(year,month+1,””);
+   }
+   
+   //カレンダーの描画   
+   function drawCalendar(calenderEvents){
+      console.log(“=========do drawCalendar”);
+      //pulldownメニューで選ばれている施設を取得する。
+      const selectedShisetu = document.getElementById(“shisetu”).value;
+      console.log(“shisetu=” + selectedShisetu);
+  
+      //calenderEventsにカレンダーから返ってきた値が入っている。
+      var eventTable = “<table>”;
+       
+       var yoyakusha = [];//カレンダーに入れるための配列。日付ごとに入れる。
+       var shisetu = [];
+       var jigen = [];
+        for(var i=0;i<32 ;i++){//初期化
+           yoyakusha[i] = “”;
+           shisetu[i] = “”;
+           jigen[i] = “”;
+        }
+       
+       var outputEventShisetu = [];
+       var outputEventName = [];
+       var outputEventJigen = [];
+       var outputEventDay = [];
+       var outputEventMonth = [];
+       
+       for(var i=0;i<calenderEvents.length ;i++){
+          //月と日を取り出す。
+          //safari対策　dt.replace(/-/g,”/”)
+          var calStartDate = new Date(calenderEvents[i][2].replace(/-/g,”/”));
+          var calEndDate = new Date(calenderEvents[i][3].replace(/-/g,”/”));
+          console.log(“calStartDate” + calStartDate);
+          console.log(“calEndDate” + calEndDate);
+          
+          //出力用の配列を作る
+          outputEventName[i] = calenderEvents[i][0];//使用者名 title
+          outputEventShisetu[i] = calenderEvents[i][1];//施設名　location
+          outputEventDay[i] = calStartDate.getDate();//日
+          outputEventMonth[i] =calStartDate.getMonth();//月
+          
+          var jigen;//予約開始時間から時限を求める
+          if (calStartDate.getHours() == 9) jigen = 1;
+          if (calStartDate.getHours() == 10) jigen = 2;
+          if (calStartDate.getHours() == 13) jigen = 3;
+          if (calStartDate.getHours() == 14) jigen = 4;
+          if (calStartDate.getHours() == 16) jigen = 5;
+          outputEventJigen[i] = jigen;
+          
+         
+          eventTable += ‘<tr><td class=”cal”>’;
+          eventTable += calenderEvents[i][0];
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calenderEvents[i][1];
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calenderEvents[i][2];
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calenderEvents[i][3];
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calStartDate.getDate();
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calStartDate.getHours();
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calStartDate.getMinutes();
+          
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calEndDate.getHours();
+          eventTable += ‘</td><td class=”cal”>’;
+          eventTable += calEndDate.getMinutes();
+          
+          eventTable += “</td></tr>”;      
+       }
+       eventTable += “</table>”;
+      
+       //年と月を取得する
+  　　　var year = document.getElementById(‘currentYear’).innerHTML;
+  　　  var month = document.getElementById(‘currentMonth’).innerHTML;
+   
+       //検索のフォームに年と月を入れる。
+       var nidForm = document.forms.nid;
+       nidForm.elements.month.value = Number(month);
+       nidForm.elements.year.value = Number(year);
+   
+      var calendarBlock = document.getElementById(‘myCalendarID’); 
+      var calendarSrc = “”;
+
+      calendarSrc += ‘<table class=”calendar”><tr>’;
+      calendarSrc += ‘<th>Sunday</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th>’;
+      //最初の日(1日）の曜日を調べる
+      var newDate = new Date(year, month-1, 1); 
+      var dayNameInWeek = newDate.getDay();
+      console.log(“曜日：” + dayNameInWeek);
+      var nullCellNumber = dayNameInWeek;
+
+      calendarSrc += ‘<tr>’;
+      for (var i = 1 ; i<=nullCellNumber ; i++){//月のはじめ　1日まで空欄のセルを作る
+         calendarSrc += ‘<td class=”cal”>.</td>’;
+      }
+
+      for (var i = 1 ; i<=31 ; i++){
+         var newDate = new Date(year, month-1, i); 
+         var dayNameInWeek = newDate.getDay();
+         //その月内に収まっているのかチェック
+         var checkMonth = newDate.getMonth();
+         if (checkMonth == month-1){//その月に収まっているのでカレンダーを作成
+            var cDay = newDate.getDate();
+            var cMonth = newDate.getMonth()+1;
+            var calEndFormat = ‘<p class=”dayNumber”>’ + cMonth + “/” + cDay + ‘</p>’;
+   
+            if (dayNameInWeek == 6){   //土曜日の場合
+   　　         calendarSrc += ‘<td  class=”cal”>’;
+               calendarSrc += calEndFormat;//日付の出力
+               //表示対象施設かチェックする。
+                for(var k=0;k<calenderEvents.length ;k++){
+                   if(outputEventDay[k] == i){
+                      if (selectedShisetu==”全て”){
+                           calendarSrc +=  ‘<table class=”yoyaku””><tr><td>’ + outputEventJigen[k] +”時限</td></tr><tr><td>” + outputEventName[k] +”</td></tr><tr><td>”+ outputEventShisetu[k] + “</td></tr></table>”;
+                      }
+                      if (selectedShisetu==outputEventShisetu[k]){
+                         //outputEventJigen, outputEventShisetu, outputEventName
+                         calendarSrc +=  ‘<table class=”yoyaku””><tr><td>’ + outputEventJigen[k] +”時限</td></tr><tr><td>” + outputEventName[k] + “</td></tr></table>”;
+                      }
+                   }
+                }
+                
+               calendarSrc += ‘</td></tr>’;
+            } else if(dayNameInWeek == 0){//日曜日の場合
+               calendarSrc += ‘<tr><td  class=”cal”>’;
+               calendarSrc += calEndFormat;//日付の出力
+               //表示対象施設かチェックする。
+                for(var k=0;k<calenderEvents.length ;k++){
+                   if(outputEventDay[k] == i){
+                      if (selectedShisetu==”全て”){
+                         calendarSrc +=  ‘<table class=”yoyaku””><tr><td>’ + outputEventJigen[k] +”時限</td></tr><tr><td>” + outputEventName[k] +”</td></tr><tr><td>”+ outputEventShisetu[k] + “</td></tr></table>”;
+                      }
+                      if (selectedShisetu==outputEventShisetu[k]){
+                         //outputEventJigen, outputEventShisetu, outputEventName
+                         calendarSrc +=  ‘<table class=”yoyaku””><tr><td>’ + outputEventJigen[k] +”時限</td></tr><tr><td>” + outputEventName[k] + “</td></tr></table>”;
+                      }
+                   }
+                }
+               calendarSrc += ‘</td>’;
+            } else {
+               calendarSrc += ‘<td  class=”cal”>’;
+               calendarSrc += calEndFormat;//日付の出力
+               //表示対象施設かチェックする。
+                for(var k=0;k<calenderEvents.length ;k++){
+                   if(outputEventDay[k] == i){
+                      if (selectedShisetu==”全て”){
+                         calendarSrc +=  ‘<table class=”yoyaku””><tr><td>’ + outputEventJigen[k] +”時限</td></tr><tr><td>” + outputEventName[k] +”</td></tr><tr><td>”+ outputEventShisetu[k] + “</td></tr></table>”;
+                      }
+                      if (selectedShisetu==outputEventShisetu[k]){
+                         //outputEventJigen, outputEventShisetu, outputEventName
+                         calendarSrc +=  ‘<table class=”yoyaku””><tr><td>’ + outputEventJigen[k] +”時限</td></tr><tr><td>” + outputEventName[k] + “</td></tr></table>”;
+                      }
+                   }
+                }
+             calendarSrc += ‘</td>’;
+            }
+         }
+      }
+      calendarSrc += ‘</tr>’;
+      calendarSrc += ‘</table>’;
+      calendarBlock.innerHTML = calendarSrc;//カレンダーをwebページに表示
+      
+      
+   }
+   
+</script>
+</html>
